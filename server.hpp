@@ -1,136 +1,127 @@
 #include <iostream>
-#include <sstream>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <string>
+#include <bits/stdc++.h>
+#include <vector>
 
-using namespace std;
+#ifndef ds_server
+    #define ds_server
 
-class Server{
-    public:
-        int PORT;
-        string IP;
+    using namespace std;
 
-        Server(){
-            PORT = 8080;
-            IP = "127.0.0.1";
-        }
+    class Server{
+        public:
+            int PORT;
+            string IP;
+            //vector<char> data;
 
-        int createSocket(){
-            server =  socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
+            Server(){
+                (*this).fd =  socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
 
-            if (server == -1){
-                cout  << "socket creation failed." << endl;
+                if ((*this).fd == -1){
+                    cout  << "socket creation failed." << endl;
+                    exit(-1);
+                }
 
-                return -1;
+                (*this).serverAddress.sin_family = AF_INET;
             }
 
-            return 0;
-        }
+            Server(int domain,int type,int protocol){
+                (*this).fd =  socket(domain,type,protocol);
 
-        int bindSocket(){
-			if (bind(server,(struct sockaddr*)&serverAddress,sizeof(serverAddress)) != 0){
-				cout << "socket binding failed." << endl;
+                if ((*this).fd == -1){
+                    cout  << "socket creation failed." << endl;
+                    exit(-1);
+                }
 
-				return -1;
-			}
-
-            addressSize = sizeof(serverAddress);
-
-			return 0;
-		}
-
-        int listenTo(int n){
-			if (listen(server, n) != 0){
-				cout << "failed to listen." << endl;
-
-				return -1;
-			}
-
-			return 0;
-		}
-
-        int acceptSocket(){
-			client = accept(server,(struct sockaddr*)&serverAddress,&addressSize);
-
-			if (client == -1){
-				cout << "socket acceptation failed." << endl;
-
-				return -1;
-			}
-
-			return 0;
-		}
-
-        int setupServer(){
-            if (createSocket() == -1){				
-				return -1;
-			}
-
-            int opt = 1;
-
-            if (setsockopt(server, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt,sizeof(opt)) != 0){
-				cout << "setsockopt failed." << endl;
-
-				return -1;
-			}
-
-            serverAddress.sin_family = AF_INET;
-			serverAddress.sin_addr.s_addr = inet_addr(IP.c_str());
-			serverAddress.sin_port = htons(PORT);
-
-            return bindSocket();;
-        }
-
-        int readData(){
-			ssize_t bytesRead = read(client,buffer,1024);
-
-            if (bytesRead == -1){
-                return -1;
+                (*this).serverAddress.sin_family = domain;
             }
 
-            cout << buffer << endl;
+            void listenTo(int n,function<void(Server&)> callback){
+                int opt = 1;
 
-            return 0;
-		}
+                if (setsockopt((*this).fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt,sizeof(opt)) != 0){
+                    cout << "setsockopt failed." << endl;
+                    exit(-1);
+                }
 
-        int sendString(string message){
-			int byteSent = 0;
-            int totalByteSent = 0;
+                (*this).serverAddress.sin_addr.s_addr = INADDR_ANY;
+                (*this).serverAddress.sin_port = htons((*this).PORT);
 
-            while(totalByteSent < message.size()){
-                byteSent = write(client,message.c_str(),message.size());
+                if (bind((*this).fd,(struct sockaddr*)&(*this).serverAddress,sizeof((*this).serverAddress)) != 0){
+                    cout << "socket binding failed." << endl;
+                    exit(-1);
+                }
 
-                if (byteSent == -1){
+                (*this).addressSize = sizeof((*this).serverAddress);
+
+                if (listen((*this).fd, n) != 0){
+                    cout << "failed to listen." << endl;
+                    exit(-1);
+                }
+                
+                while(true){
+                    (*this).c_fd = accept((*this).fd,(struct sockaddr*)&(*this).clientAddress,&(*this).addressSize);
+
+                    if ((*this).c_fd == -1){
+                        cout << "socket acceptation failed." << endl;
+                        continue;
+                    }
+                    
+                    callback((*this));
+                }
+            }
+
+            int readData(){
+                ssize_t bytesRead = read((*this).c_fd,buffer,1024);
+
+                if (bytesRead == -1){
+                    cout << "read error" << endl;
+
                     return -1;
                 }
 
-                totalByteSent += byteSent;
+                cout << buffer << endl;
+
+                return 0;
+            }
+            int sendString(string message){
+                int byteSent = 0;
+                int totalByteSent = 0;
+
+                while(totalByteSent < message.size()){
+                    byteSent = write((*this).c_fd,message.c_str(),message.size());
+
+                    if (byteSent == -1){
+                        return -1;
+                    }
+
+                    totalByteSent += byteSent;
+                }
+
+                return 0;
             }
 
-            return 0;
-		}
+            int closeClient(){
+                return close((*this).c_fd);
+            }
+            int closeServer(){
+                close((*this).c_fd);
+                return close((*this).fd);
+            }
 
-        int closeClient(){
-            return close(client);
-        }
+            ~Server(){
+                closeServer();
+            }
+        
+        private:
+            int fd;
+            int c_fd;
+            struct sockaddr_in serverAddress;
+            struct sockaddr_in clientAddress;
+            socklen_t addressSize;
+            char buffer[1024];
+    };
 
-        void closeServer(){
-			close(client);
-			close(server);
-		}
-
-        ~Server(){
-			closeServer();
-		}
-    
-    private:
-        int server;
-        int client;
-        struct sockaddr_in serverAddress;
-        socklen_t addressSize;
-        char buffer[1024];
-};
+#endif

@@ -7,35 +7,23 @@ using namespace std;
 int main(int argc, char const* argv[]){
    Server server;
 
-   server.IP = "0.0.0.0";
    server.PORT = 8767;
 
-   if (server.setupServer() != 0){
-      return -1;
-   }
-
-   server.listenTo(2);
-   int acc = 1;
-
-   string serverMessage = "HTTP /1.1 200 OK\nContent-Type: text/html\nContent-Length: ";
+   string serverMessage = "HTTP/1.1 200 OK\nContent-Type: text/html\nContent-Length: ";
    string response = "<html><h1>Hello World</h1></html>";
 
    serverMessage.append(to_string(response.size()));
    serverMessage.append("\n\n");
    serverMessage.append(response);
 
-   while (true){
-      acc = server.acceptSocket();
+   cout << "starting server..." << endl;
 
-      if (acc != -1) {
-         //cout << "\nfrom client: ";
-         server.readData();
+   server.listenTo(3,[serverMessage](Server& srv){
+      srv.readData();
+      srv.sendString(serverMessage);
 
-         server.sendString(serverMessage);
-      }
-
-      server.closeClient();
-   };
+      srv.closeClient();
+   });
 
    return 0;  
 }
