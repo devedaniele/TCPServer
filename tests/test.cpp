@@ -1,13 +1,11 @@
 #include <iostream>
-#include "../server.hpp"
+#include "../server.h"
 #include <string>
 
 using namespace std;
 
 int main(int argc, char const* argv[]){
-   Server server;
-
-   server.PORT = 8767;
+   Server server(AF_INET);
 
    string serverMessage = "HTTP/1.1 200 OK\nContent-Type: text/html\nContent-Length: ";
    string response = "<html><h1>Hello World</h1></html>";
@@ -18,12 +16,28 @@ int main(int argc, char const* argv[]){
 
    cout << "starting server..." << endl;
 
-   server.listenTo(3,[serverMessage](Server& srv){
-      srv.readData();
-      srv.sendString(serverMessage);
+   server.listenTo(8767,[serverMessage](const int &cfd){
+      char buffer[1024];
+      if (read(cfd,buffer,1024) != -1)
+         cout << buffer << endl;
+      
+      int totalByteSent = 0;
 
-      srv.closeClient();
+      while(totalByteSent < serverMessage.size()){
+         int byteSent = write(cfd,serverMessage.c_str(),serverMessage.size());
+
+         if (byteSent == -1){
+            cout << "writing failed." << endl;
+            return;
+         }
+         
+         totalByteSent += byteSent;
+      }
+
+      close(cfd);
    });
+
+   cout << "after listen " << endl;
 
    return 0;  
 }

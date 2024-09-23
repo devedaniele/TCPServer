@@ -10,9 +10,7 @@
 				"-g",
 				"tests/test.cpp",
 				"-o",
-				"tests/test",
-				"&&",
-				"./tests/test"
+				"tests/test"
 			],
 			"options": {
 				"cwd": "${workspaceFolder}"
